@@ -112,6 +112,17 @@ class Memoria
     /** @var array[Color] $colors_to_improve */
     static public array $colors_to_improve = [];
 
+    static public array $max_min_stats = [
+        Statistic::HP->value => [0, 0],
+        Statistic::ATK->value => [0, 0],
+        Statistic::DEF->value => [0, 0],
+        Statistic::SP_ATK->value => [0, 0],
+        Statistic::SP_DEF->value => [0, 0],
+        Statistic::CRIT_CHANCE->value => [0, 0],
+        Statistic::MV_SPEED->value => [0, 0],
+        Statistic::CD_REDUCTION->value => [0, 0],
+    ];
+
     static public function addBase(Base $base): void
     {
         self::$bases[] = $base;
@@ -146,33 +157,64 @@ function mutacao(Cromossomo $cromossomo): Cromossomo
     );
 }
 
+function adapt(Cromossomo $cromossomo, Gene $gene): float
+{
+    $peso_por_estatisticas = 0;
+    foreach (Memoria::$statistics_to_improve as $statistic) {
+        $s = (string) $statistic->value;
+        $peso_por_estatisticas += ($gene->$s - Memoria::$max_min_stats[$s][0]) / (Memoria::$max_min_stats[$s][1] - Memoria::$max_min_stats[$s][0]);
+    }
+
+    $peso_por_cor = 0;
+    foreach (Memoria::$colors_to_improve as $color) {
+        $peso_por_cor += in_array($color, array_map(fn($color) => $color->value, $gene->colors)) ? 1 : 0;
+    }
+    $peso_por_cor = $peso_por_cor / count(Memoria::$colors_to_improve);
+
+    $peso_por_incrementar_cor = 0;
+    $colors = [];
+    foreach ($cromossomo->genes() as $g) {
+        foreach ($gene->colors as $c) {
+            $colors[$c->value] = ($colors[$c->value] ?? 0) + 1;
+        }
+    }
+    foreach (Memoria::$colors_to_improve as $color) {
+        if (in_array($color, $gene->colors)) {
+            $value = $colors[$color->value] ?? 0;
+            if (in_array($color, [Color::GREEN, Color::BLUE, Color::WHITE, Color::BROWN, Color::PURPLE])) {
+                if ($value >= 2 && $value < 4) {
+                    $peso_por_incrementar_cor += 1;
+                }
+                else if ($value >= 4 && $value < 6) {
+                    $peso_por_incrementar_cor += 2;
+                }
+                else if ($value >= 6) {
+                    $peso_por_incrementar_cor += 3;
+                }
+            }
+            else if (in_array($color, [Color::RED, Color::YELLOW, Color::PINK, Color::NAVY, Color::BLACK, Color::GRAY])) {
+                if ($value >= 3 && $value < 5) {
+                    $peso_por_incrementar_cor += 1;
+                }
+                else if ($value >= 5 && $value < 7) {
+                    $peso_por_incrementar_cor += 2;
+                }
+                else if ($value >= 7) {
+                    $peso_por_incrementar_cor += 3;
+                }
+            }
+        }
+    }
+    $peso_por_incrementar_cor = $peso_por_incrementar_cor / count($gene->colors) * 3;
+
+    return ($peso_por_estatisticas + $peso_por_cor + $peso_por_incrementar_cor) / 3;
+}
+
 function fitness(Cromossomo $cromossomo): float
 {
     $fitness = 0;
     foreach ($cromossomo->genes() as $gene) {
-        if ($gene->level === Level::GOLD) {
-            $fitness += 3;
-        }
-        else if ($gene->level === Level::SILVER) {
-            $fitness += 2;
-        }
-        else if ($gene->level === Level::BRONZE) {
-            $fitness += 1;
-        }
-        foreach (Memoria::$colors_to_improve as $color) {
-            if (in_array($color, $gene->colors)) {
-                $fitness += 1;
-            }
-        }
-        foreach (Memoria::$statistics_to_improve as $statistic) {
-            $s = (string) $statistic->value;
-            if ($gene->$s > 0) {
-                $fitness += 1;
-            }
-            else if ($gene->$s < 0) {
-                $fitness -= 1;
-            }
-        }
+        $fitness += adapt($cromossomo, $gene);
     }
     return $fitness;
 }
@@ -276,23 +318,42 @@ foreach ($json as $pokemon)
         mv_speed: $stats[Statistic::MV_SPEED->value] ?? 0,
         cd_reduction: $stats[Statistic::CD_REDUCTION->value] ?? 0));
 }
+$hp_values = array_map(fn($base) => $base->hp, Memoria::$bases);
+$atk_values = array_map(fn($base) => $base->atk, Memoria::$bases);
+$def_values = array_map(fn($base) => $base->def, Memoria::$bases);
+$sp_atk_values = array_map(fn($base) => $base->sp_atk, Memoria::$bases);
+$sp_def_values = array_map(fn($base) => $base->sp_def, Memoria::$bases);
+$crit_chance_values = array_map(fn($base) => $base->crit_chance, Memoria::$bases);
+$mv_speed_values = array_map(fn($base) => $base->mv_speed, Memoria::$bases);
+$cd_reduction_values = array_map(fn($base) => $base->cd_reduction, Memoria::$bases);
+Memoria::$max_min_stats[Statistic::HP->value] = [min($hp_values), max($hp_values)];
+Memoria::$max_min_stats[Statistic::ATK->value] = [min($atk_values), max($atk_values)];
+Memoria::$max_min_stats[Statistic::DEF->value] = [min($def_values), max($def_values)];
+Memoria::$max_min_stats[Statistic::SP_ATK->value] = [min($sp_atk_values), max($sp_atk_values)];
+Memoria::$max_min_stats[Statistic::SP_DEF->value] = [min($sp_def_values), max($sp_def_values)];
+Memoria::$max_min_stats[Statistic::CRIT_CHANCE->value] = [min($crit_chance_values), max($crit_chance_values)];
+Memoria::$max_min_stats[Statistic::MV_SPEED->value] = [min($mv_speed_values), max($mv_speed_values)];
+Memoria::$max_min_stats[Statistic::CD_REDUCTION->value] = [min($cd_reduction_values), max($cd_reduction_values)];
 
-Memoria::$colors_to_improve = [Color::WHITE];
+Memoria::$colors_to_improve = [Color::WHITE, Color::BLUE];
 Memoria::$statistics_to_improve = [Statistic::HP, Statistic::DEF];
 
 // Sort 10 genes
-$cromossomo1 = new Cromossomo(
-    Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
-    Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
-    Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
-    Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
-    Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
-    Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
-    Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
-    Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
-    Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
-    Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
-);
+$cromossomo1 = null;
+do {
+    $cromossomo1 = new Cromossomo(
+        Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
+        Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
+        Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
+        Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
+        Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
+        Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
+        Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
+        Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
+        Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
+        Gene::fromBase(Memoria::$bases[rand(0, count(Memoria::$bases) - 1)]),
+    );
+} while ($cromossomo1 === null || is_valid($cromossomo1) === false);
 
 
 $t = 0;
