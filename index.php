@@ -305,18 +305,21 @@ foreach ($json as $pokemon)
     {
         $level = Level::from($pokemon['grade']);
     }
-    Memoria::addBase(new Base(
-        pokemon: $display_name,
-        level: $level,
-        colors: $colors,
-        hp: $stats[Statistic::HP->value] ?? 0,
-        atk: $stats[Statistic::ATK->value] ?? 0,
-        def: $stats[Statistic::DEF->value] ?? 0,
-        sp_atk: $stats[Statistic::SP_ATK->value] ?? 0,
-        sp_def: $stats[Statistic::SP_DEF->value] ?? 0,
-        crit_chance: $stats[Statistic::CRIT_CHANCE->value] ?? 0,
-        mv_speed: $stats[Statistic::MV_SPEED->value] ?? 0,
-        cd_reduction: $stats[Statistic::CD_REDUCTION->value] ?? 0));
+    if ($level == Level::GOLD)
+    {
+        Memoria::addBase(new Base(
+            pokemon: $display_name,
+            level: $level,
+            colors: $colors,
+            hp: $stats[Statistic::HP->value] ?? 0,
+            atk: $stats[Statistic::ATK->value] ?? 0,
+            def: $stats[Statistic::DEF->value] ?? 0,
+            sp_atk: $stats[Statistic::SP_ATK->value] ?? 0,
+            sp_def: $stats[Statistic::SP_DEF->value] ?? 0,
+            crit_chance: $stats[Statistic::CRIT_CHANCE->value] ?? 0,
+            mv_speed: $stats[Statistic::MV_SPEED->value] ?? 0,
+            cd_reduction: $stats[Statistic::CD_REDUCTION->value] ?? 0));
+    }
 }
 $hp_values = array_map(fn($base) => $base->hp, Memoria::$bases);
 $atk_values = array_map(fn($base) => $base->atk, Memoria::$bases);
@@ -335,8 +338,8 @@ Memoria::$max_min_stats[Statistic::CRIT_CHANCE->value] = [min($crit_chance_value
 Memoria::$max_min_stats[Statistic::MV_SPEED->value] = [min($mv_speed_values), max($mv_speed_values)];
 Memoria::$max_min_stats[Statistic::CD_REDUCTION->value] = [min($cd_reduction_values), max($cd_reduction_values)];
 
-Memoria::$colors_to_improve = [Color::WHITE, Color::BLUE];
-Memoria::$statistics_to_improve = [Statistic::HP, Statistic::DEF];
+Memoria::$colors_to_improve = [Color::WHITE, Color::YELLOW];
+Memoria::$statistics_to_improve = [Statistic::HP, Statistic::MV_SPEED];
 
 // Sort 10 genes
 $cromossomo1 = null;
